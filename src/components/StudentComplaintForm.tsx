@@ -35,6 +35,7 @@ import {
 interface StudentComplaintFormProps {
   currentUser: CurrentUser;
   onTrackReport: (reportId: string) => void;
+  onOpenEmergencyHelplines?: () => void;
 }
 
 const OFFLINE_CATEGORIES: OfflineCategory[] = [
@@ -54,6 +55,7 @@ const ONLINE_CATEGORIES: OnlineCategory[] = [
 export const StudentComplaintForm: React.FC<StudentComplaintFormProps> = ({
   currentUser,
   onTrackReport,
+  onOpenEmergencyHelplines,
 }) => {
   // Form State
   const [raggingType, setRaggingType] = useState<RaggingType>('offline');
@@ -360,6 +362,40 @@ export const StudentComplaintForm: React.FC<StudentComplaintFormProps> = ({
             <Sparkles className="w-3.5 h-3.5 text-[#10B981]" />
             <span>Demo Mode: Auto-Fill</span>
           </button>
+        </div>
+      </div>
+
+      {/* Quick Emergency Helplines Callout */}
+      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-rose-950/80 via-[#111827] to-[#111827] border border-rose-500/40 flex flex-wrap items-center justify-between gap-3 shadow-lg">
+        <div className="flex items-center gap-2.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
+          <div>
+            <p className="text-xs font-bold text-rose-300">
+              Immediate Danger or Acute Harassment?
+            </p>
+            <p className="text-[11px] text-slate-300">
+              Call Campus Security Control (<strong className="text-white font-mono">{currentUser.campus?.securityHelpline || '+91 80 2839 0100'}</strong>) or National 112.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <a
+            href={`tel:${(currentUser.campus?.securityHelpline || '+918028390100').replace(/[^0-9+]/g, '')}`}
+            className="py-1.5 px-3 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-rose-600/30 transition-all active:scale-95"
+          >
+            <Phone className="w-3.5 h-3.5" />
+            <span>Call Security</span>
+          </a>
+          {onOpenEmergencyHelplines && (
+            <button
+              type="button"
+              onClick={onOpenEmergencyHelplines}
+              className="py-1.5 px-3 rounded-lg bg-[#111827] hover:bg-[#064E3B] text-slate-300 hover:text-white border border-[#064E3B] text-xs font-semibold transition-colors"
+            >
+              All Helplines
+            </button>
+          )}
         </div>
       </div>
 

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { CurrentUser, Role, Department } from '../types/index.ts';
-import { DEPARTMENTS } from '../services/storage.ts';
-import { X, Check, ArrowRight, UserPlus, KeyRound, ShieldCheck } from 'lucide-react';
+import { DEPARTMENTS, DEFAULT_CAMPUS } from '../services/storage.ts';
+import { apiClient } from '../services/apiClient.ts';
+import { X, Check, ArrowRight, UserPlus, KeyRound, ShieldCheck, Lock, Building } from 'lucide-react';
 import { ZovaLogo, ZovaShieldIcon } from './ZovaLogo.tsx';
 
 interface LoginModalProps {
@@ -9,6 +10,7 @@ interface LoginModalProps {
   onClose: () => void;
   currentUser: CurrentUser;
   onSelectUser: (user: CurrentUser) => void;
+  onOpenFullRegistration?: () => void;
 }
 
 const PRESET_USERS: CurrentUser[] = [
@@ -16,29 +18,71 @@ const PRESET_USERS: CurrentUser[] = [
     role: 'Student',
     name: 'Ananya Roy',
     studentId: 'STU-2024-001',
+    campus: DEFAULT_CAMPUS,
+    isVerified: true,
+    verificationMethod: 'student_portal',
+  },
+  {
+    role: 'Faculty',
+    name: 'Prof. Elena Vance',
+    department: 'Computer Science & Engineering',
+    campus: DEFAULT_CAMPUS,
+    isVerified: true,
+    verificationMethod: 'institutional_passkey',
   },
   {
     role: 'HOD',
     name: 'Dr. K. Sharma',
     department: 'Computer Science & Engineering',
+    campus: DEFAULT_CAMPUS,
+    isVerified: true,
+    verificationMethod: 'institutional_passkey',
   },
   {
     role: 'HOD',
     name: 'Dr. V. Prasad',
     department: 'Mechanical Engineering',
+    campus: DEFAULT_CAMPUS,
+    isVerified: true,
+    verificationMethod: 'institutional_passkey',
   },
   {
     role: 'HOD',
     name: 'Dr. S. Rao',
     department: 'Electronics & Communication',
+    campus: DEFAULT_CAMPUS,
+    isVerified: true,
+    verificationMethod: 'institutional_passkey',
   },
   {
     role: 'Dean',
     name: 'Dean Robert Sterling',
+    campus: DEFAULT_CAMPUS,
+    isVerified: true,
+    verificationMethod: 'institutional_passkey',
   },
   {
     role: 'Higher Authority',
     name: 'Prof. M. Sen (Anti-Ragging Committee)',
+    campus: DEFAULT_CAMPUS,
+    isVerified: true,
+    verificationMethod: 'institutional_passkey',
+  },
+  {
+    role: 'Other',
+    customRoleTitle: 'Campus Counsellor',
+    name: 'Dr. Priya Nair',
+    campus: DEFAULT_CAMPUS,
+    isVerified: true,
+    verificationMethod: 'institutional_passkey',
+  },
+  {
+    role: 'Other',
+    customRoleTitle: 'Hostel Warden',
+    name: 'Mr. Devendra Verma',
+    campus: DEFAULT_CAMPUS,
+    isVerified: true,
+    verificationMethod: 'institutional_passkey',
   },
 ];
 
@@ -47,59 +91,73 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   onClose,
   currentUser,
   onSelectUser,
+  onOpenFullRegistration,
 }) => {
   const [activeMode, setActiveMode] = useState<'signin' | 'register'>('signin');
-  const [role, setRole] = useState<Role>(currentUser.role);
-  const [name, setName] = useState<string>(currentUser.name);
-  const [department, setDepartment] = useState<Department>(
-    currentUser.department || 'Computer Science & Engineering'
-  );
-  const [studentId, setStudentId] = useState<string>(currentUser.studentId || 'STU-2024-001');
 
   // Register specific fields
   const [regName, setRegName] = useState<string>('');
   const [regRole, setRegRole] = useState<Role>('Student');
+  const [regCustomRoleTitle, setRegCustomRoleTitle] = useState<string>('');
   const [regStudentId, setRegStudentId] = useState<string>('');
   const [regDepartment, setRegDepartment] = useState<Department>('Computer Science & Engineering');
-  const [regPassword, setRegPassword] = useState<string>('');
+  const [regPasskey, setRegPasskey] = useState<string>('');
   const [regSuccess, setRegSuccess] = useState<string | null>(null);
 
   if (!isOpen) return null;
-
-  const handleCustomSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
-
-    onSelectUser({
-      role,
-      name: name.trim(),
-      studentId: role === 'Student' ? studentId.trim() || 'STU-2024-099' : undefined,
-      department: role === 'HOD' ? department : undefined,
-    });
-    onClose();
-  };
 
   const handleSelectPreset = (preset: CurrentUser) => {
     onSelectUser(preset);
     onClose();
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!regName.trim()) return;
 
-    const newId = regRole === 'Student'
-      ? (regStudentId.trim() || `STU-2026-${Math.floor(100 + Math.random() * 900)}`)
-      : undefined;
+    let isVerified = false;
+    let verificationMethod: any = 'unverified_pending';
+
+    if (regRole === 'Student') {
+      isVerified = true;
+      verificationMethod = 'student_portal';
+    } else if (regPasskey.trim()) {
+      try {
+        const verify = await apiClient.verifyRole(regPasskey, {
+          role: regRole,
+          name: regName,
+          campus: currentUser.campus || DEFAULT_CAMPUS,
+          isVerified: false,
+        });
+        if (verify.success) {
+          isVerified = true;
+          verificationMethod = 'institutional_passkey';
+        }
+      } catch {}
+    }
+
+    const newId =
+      regRole === 'Student'
+        ? regStudentId.trim() || `STU-2026-${Math.floor(100 + Math.random() * 900)}`
+        : undefined;
 
     const newUser: CurrentUser = {
       role: regRole,
+      customRoleTitle: regRole === 'Other' ? regCustomRoleTitle.trim() : undefined,
       name: regName.trim(),
       studentId: newId,
-      department: regRole === 'HOD' ? regDepartment : undefined,
+      department: ['HOD', 'Faculty'].includes(regRole) ? regDepartment : undefined,
+      campus: currentUser.campus || DEFAULT_CAMPUS,
+      isVerified,
+      verificationMethod,
     };
 
-    setRegSuccess(`Account for ${newUser.name} successfully registered in the ZOVA security registry!`);
+    setRegSuccess(
+      isVerified
+        ? `Account registered and verified with institutional authority!`
+        : `Account registered! Administrative access marked pending passkey verification.`
+    );
+
     setTimeout(() => {
       onSelectUser(newUser);
       setRegSuccess(null);
@@ -118,12 +176,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               <div className="flex items-center gap-2">
                 <span className="text-lg font-black tracking-wider text-[#F9FAFB]">ZOVA</span>
                 <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#064E3B] text-[#10B981] border border-[#10B981]/30 uppercase">
-                  AUTH ACCESS
+                  RBAC ACCESS
                 </span>
               </div>
-              <p className="text-xs text-[#10B981] font-medium">
-                Safer Campus. Stronger You.
-              </p>
+              <p className="text-xs text-[#10B981] font-medium">Safer Campus. Stronger You.</p>
             </div>
           </div>
           <button
@@ -134,7 +190,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Switcher: Sign In / Demo Switcher vs Register */}
+        {/* Tab Switcher: Sign In / Persona Switcher vs Register */}
         <div className="px-6 pt-4 pb-2 border-b border-[#064E3B]/60 flex items-center gap-2">
           <button
             type="button"
@@ -146,7 +202,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             }`}
           >
             <KeyRound className="w-3.5 h-3.5" />
-            <span>Sign In / Switch Role</span>
+            <span>Select Demo Persona</span>
           </button>
           <button
             type="button"
@@ -158,22 +214,21 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             }`}
           >
             <UserPlus className="w-3.5 h-3.5" />
-            <span>Register Account</span>
+            <span>Register Profile</span>
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 max-h-[75vh] overflow-y-auto text-xs">
+        <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto text-xs">
           {activeMode === 'signin' ? (
             <>
-              {/* Quick Presets */}
               <div className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-slate-200">
-                    1-Click Verified Personas:
+                    Preloaded Verified Personas:
                   </span>
                   <span className="text-[10px] text-emerald-400 font-mono">
-                    Enforced RBAC
+                    Instant 1-Click Access
                   </span>
                 </div>
                 <div className="grid grid-cols-1 gap-2">
@@ -181,7 +236,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     const isActive =
                       currentUser.role === preset.role &&
                       currentUser.name === preset.name &&
-                      currentUser.department === preset.department;
+                      currentUser.department === preset.department &&
+                      currentUser.customRoleTitle === preset.customRoleTitle;
 
                     return (
                       <button
@@ -198,175 +254,134 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                           <div className="font-semibold text-[#F9FAFB] flex items-center gap-2">
                             <span>{preset.name}</span>
                             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#064E3B] border border-[#10B981]/40 text-[#10B981] font-semibold">
-                              {preset.role}
+                              {preset.role === 'Other' ? preset.customRoleTitle : preset.role}
                             </span>
                           </div>
-                          <div className="text-[11px] text-slate-300 mt-0.5">
-                            {preset.role === 'Student'
-                              ? `Student ID: ${preset.studentId}`
-                              : preset.role === 'HOD'
-                              ? `Department: ${preset.department}`
-                              : preset.role === 'Dean'
-                              ? 'Central University Welfare'
-                              : 'Apex Anti-Ragging Committee'}
+                          <div className="text-[11px] text-slate-400 mt-0.5">
+                            {preset.role === 'Student' && `ID: ${preset.studentId} · Confidential Reporting`}
+                            {preset.role === 'Faculty' && `${preset.department} · Advisory`}
+                            {preset.role === 'HOD' && `${preset.department} · Level 1 Oversight`}
+                            {preset.role === 'Dean' && 'Central Proctorial Board · Level 2 & Above'}
+                            {preset.role === 'Higher Authority' && 'Supreme Tribunal Oversight · Level 3'}
+                            {preset.role === 'Other' && `${preset.customRoleTitle} Desk · Safety Logs`}
                           </div>
                         </div>
 
-                        {isActive ? (
-                          <Check className="w-4 h-4 text-[#10B981]" />
-                        ) : (
-                          <ArrowRight className="w-4 h-4 text-slate-400" />
-                        )}
+                        <div className="flex items-center gap-2">
+                          {isActive ? (
+                            <span className="text-[11px] font-bold text-[#10B981] flex items-center gap-1">
+                              <Check className="w-3.5 h-3.5" />
+                              Active
+                            </span>
+                          ) : (
+                            <ArrowRight className="w-4 h-4 text-slate-500" />
+                          )}
+                        </div>
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              {/* Custom Role Picker Form */}
-              <div className="pt-4 border-t border-[#064E3B]/60 space-y-3">
-                <span className="font-semibold text-slate-200 block">
-                  Or Quick Switch Any Persona:
-                </span>
-
-                <form onSubmit={handleCustomSubmit} className="space-y-3.5">
-                  <div>
-                    <label className="block text-slate-200 mb-1 font-medium">Select Role</label>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {(['Student', 'HOD', 'Dean', 'Higher Authority'] as Role[]).map((r) => (
-                        <button
-                          key={r}
-                          type="button"
-                          onClick={() => setRole(r)}
-                          className={`py-2 px-2.5 rounded-lg font-bold text-center border transition-all ${
-                            role === r
-                              ? 'bg-[#10B981] text-[#111827] border-[#10B981] shadow-sm'
-                              : 'bg-[#111827] text-slate-300 border-[#064E3B] hover:bg-[#064E3B]/50 hover:text-[#F9FAFB]'
-                          }`}
-                        >
-                          {r === 'Higher Authority' ? 'Higher Auth' : r}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-200 mb-1 font-medium">Full Name</label>
-                    <input
-                      type="text"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      placeholder="Enter name"
-                      className="w-full px-3 py-2 bg-[#111827] border border-[#064E3B] rounded-lg text-[#F9FAFB] placeholder-slate-500 text-xs focus:outline-none focus:border-[#10B981]"
-                    />
-                  </div>
-
-                  {role === 'HOD' && (
-                    <div>
-                      <label className="block text-slate-200 mb-1 font-medium">
-                        Department (HOD sees complaints for their department only)
-                      </label>
-                      <select
-                        value={department}
-                        onChange={(e) => setDepartment(e.target.value as Department)}
-                        className="w-full px-3 py-2 bg-[#111827] border border-[#064E3B] rounded-lg text-[#F9FAFB] text-xs focus:outline-none focus:border-[#10B981]"
-                      >
-                        {DEPARTMENTS.map((dept) => (
-                          <option key={dept} value={dept} className="bg-[#111827] text-[#F9FAFB]">
-                            {dept}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {role === 'Student' && (
-                    <div>
-                      <label className="block text-slate-200 mb-1 font-medium">Student ID</label>
-                      <input
-                        type="text"
-                        value={studentId}
-                        onChange={(e) => setStudentId(e.target.value)}
-                        placeholder="e.g. STU-2024-001"
-                        className="w-full px-3 py-2 bg-[#111827] border border-[#064E3B] rounded-lg text-[#F9FAFB] placeholder-slate-500 text-xs font-mono focus:outline-none focus:border-[#10B981]"
-                      />
-                    </div>
-                  )}
-
+              {/* Comprehensive setup wizard trigger */}
+              {onOpenFullRegistration && (
+                <div className="pt-2 border-t border-[#064E3B]/50">
                   <button
-                    type="submit"
-                    className="w-full py-2.5 rounded-lg bg-[#10B981] hover:bg-[#059669] font-bold text-[#111827] transition-all flex items-center justify-center gap-1.5 shadow-md shadow-[#10B981]/20"
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenFullRegistration();
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-[#064E3B]/40 hover:bg-[#064E3B] text-slate-200 hover:text-white border border-[#10B981]/40 font-bold flex items-center justify-center gap-2 transition-all"
                   >
-                    <span>Authenticate into ZOVA</span>
+                    <Building className="w-4 h-4 text-[#10B981]" />
+                    <span>Launch Full Campus Onboarding Wizard</span>
                   </button>
-                </form>
-              </div>
+                </div>
+              )}
             </>
           ) : (
-            /* Register Screen */
             <form onSubmit={handleRegisterSubmit} className="space-y-4">
               {regSuccess && (
-                <div className="p-3 rounded-xl bg-[#064E3B] border border-[#10B981] text-emerald-100 flex items-center gap-2 font-semibold">
-                  <ShieldCheck className="w-5 h-5 text-[#10B981]" />
+                <div className="p-3 rounded-xl bg-[#064E3B] border border-[#10B981] text-[#F9FAFB] flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-[#34D399]" />
                   <span>{regSuccess}</span>
                 </div>
               )}
 
               <div>
-                <span className="font-semibold text-slate-200 block mb-1">Account Role</span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {(['Student', 'HOD', 'Dean', 'Higher Authority'] as Role[]).map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => setRegRole(r)}
-                      className={`py-2 px-2 rounded-lg font-bold text-center border transition-all ${
-                        regRole === r
-                          ? 'bg-[#10B981] text-[#111827] border-[#10B981]'
-                          : 'bg-[#111827] text-slate-300 border-[#064E3B] hover:bg-[#064E3B]/50 hover:text-[#F9FAFB]'
-                      }`}
-                    >
-                      {r === 'Higher Authority' ? 'Higher Auth' : r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-200 mb-1 font-medium">Full Name *</label>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Full Name / Official Name *
+                </label>
                 <input
                   type="text"
-                  required
                   value={regName}
                   onChange={(e) => setRegName(e.target.value)}
-                  placeholder="e.g. Maya Chen"
-                  className="w-full px-3 py-2 bg-[#111827] border border-[#064E3B] rounded-lg text-[#F9FAFB] placeholder-slate-500 text-xs focus:outline-none focus:border-[#10B981]"
+                  placeholder="e.g. Maya Krishnan"
+                  required
+                  className="w-full px-3 py-2 rounded-lg bg-[#111827] border border-[#064E3B] focus:border-[#10B981] text-[#F9FAFB] outline-none"
                 />
               </div>
 
-              {regRole === 'Student' && (
+              <div>
+                <label className="block text-slate-300 font-semibold mb-1">
+                  Select Role *
+                </label>
+                <select
+                  value={regRole}
+                  onChange={(e) => setRegRole(e.target.value as Role)}
+                  className="w-full px-3 py-2 rounded-lg bg-[#111827] border border-[#064E3B] focus:border-[#10B981] text-[#F9FAFB] outline-none"
+                >
+                  <option value="Student">Student (File & Track Complaints)</option>
+                  <option value="Faculty">Faculty (Advisory & Directory)</option>
+                  <option value="HOD">HOD (Level 1 Department Authority)</option>
+                  <option value="Dean">Dean (Level 2 Central Oversight)</option>
+                  <option value="Higher Authority">Higher Authority (Level 3 Tribunal)</option>
+                  <option value="Other">Other (Custom Campus Role)</option>
+                </select>
+              </div>
+
+              {regRole === 'Other' && (
                 <div>
-                  <label className="block text-slate-200 mb-1 font-medium">Campus Student ID</label>
+                  <label className="block text-slate-300 font-semibold mb-1">
+                    Custom Role Title *
+                  </label>
                   <input
                     type="text"
-                    value={regStudentId}
-                    onChange={(e) => setRegStudentId(e.target.value)}
-                    placeholder="e.g. STU-2026-088 (optional, auto-generated if blank)"
-                    className="w-full px-3 py-2 bg-[#111827] border border-[#064E3B] rounded-lg text-[#F9FAFB] placeholder-slate-500 text-xs font-mono focus:outline-none focus:border-[#10B981]"
+                    value={regCustomRoleTitle}
+                    onChange={(e) => setRegCustomRoleTitle(e.target.value)}
+                    placeholder="e.g. Campus Counsellor, Hostel Warden, Lab In-Charge"
+                    required
+                    className="w-full px-3 py-2 rounded-lg bg-[#111827] border border-[#064E3B] focus:border-[#10B981] text-[#F9FAFB] outline-none"
                   />
                 </div>
               )}
 
-              {regRole === 'HOD' && (
+              {regRole === 'Student' && (
                 <div>
-                  <label className="block text-slate-200 mb-1 font-medium">Academic Department</label>
+                  <label className="block text-slate-300 font-semibold mb-1">
+                    Student ID / Roll Number
+                  </label>
+                  <input
+                    type="text"
+                    value={regStudentId}
+                    onChange={(e) => setRegStudentId(e.target.value)}
+                    placeholder="e.g. STU-2026-881"
+                    className="w-full px-3 py-2 rounded-lg bg-[#111827] border border-[#064E3B] focus:border-[#10B981] text-xs font-mono text-[#F9FAFB] outline-none"
+                  />
+                </div>
+              )}
+
+              {['HOD', 'Faculty'].includes(regRole) && (
+                <div>
+                  <label className="block text-slate-300 font-semibold mb-1">Department</label>
                   <select
                     value={regDepartment}
                     onChange={(e) => setRegDepartment(e.target.value as Department)}
-                    className="w-full px-3 py-2 bg-[#111827] border border-[#064E3B] rounded-lg text-[#F9FAFB] text-xs focus:outline-none focus:border-[#10B981]"
+                    className="w-full px-3 py-2 rounded-lg bg-[#111827] border border-[#064E3B] focus:border-[#10B981] text-[#F9FAFB] outline-none"
                   >
                     {DEPARTMENTS.map((dept) => (
-                      <option key={dept} value={dept} className="bg-[#111827] text-[#F9FAFB]">
+                      <option key={dept} value={dept}>
                         {dept}
                       </option>
                     ))}
@@ -374,27 +389,32 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 </div>
               )}
 
-              <div>
-                <label className="block text-slate-200 mb-1 font-medium">Security Password / PIN</label>
-                <input
-                  type="password"
-                  value={regPassword}
-                  onChange={(e) => setRegPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full px-3 py-2 bg-[#111827] border border-[#064E3B] rounded-lg text-[#F9FAFB] placeholder-slate-500 text-xs focus:outline-none focus:border-[#10B981]"
-                />
-              </div>
-
-              <div className="p-3 rounded-lg bg-[#064E3B]/20 border border-[#064E3B] text-[11px] text-slate-300">
-                <strong className="text-[#10B981]">ZOVA Confidentiality Guarantee:</strong> All registered accounts operate under zero-retaliation protocols. Student identity remains strictly anonymous on all filed complaints.
-              </div>
+              {/* Passkey input for officer roles */}
+              {regRole !== 'Student' && (
+                <div className="p-3.5 rounded-xl bg-[#064E3B]/20 border border-[#064E3B] space-y-2">
+                  <div className="flex items-center gap-1.5 text-[#10B981] font-semibold">
+                    <Lock className="w-3.5 h-3.5" />
+                    <span>Institutional Passkey (For Verified Status)</span>
+                  </div>
+                  <input
+                    type="password"
+                    value={regPasskey}
+                    onChange={(e) => setRegPasskey(e.target.value)}
+                    placeholder="Optional during setup (e.g. ZOVA-DEAN-SECURE)"
+                    className="w-full px-3 py-2 rounded-lg bg-[#111827] border border-[#064E3B] focus:border-[#10B981] text-xs font-mono text-[#F9FAFB] outline-none"
+                  />
+                  <p className="text-[10px] text-slate-400">
+                    If left blank, account will be marked Unverified until passkey is entered.
+                  </p>
+                </div>
+              )}
 
               <button
                 type="submit"
-                className="w-full py-2.5 rounded-lg bg-[#10B981] hover:bg-[#059669] font-bold text-[#111827] transition-all flex items-center justify-center gap-1.5 shadow-md shadow-[#10B981]/20"
+                className="w-full py-2.5 rounded-xl bg-[#10B981] hover:bg-[#059669] text-xs font-bold text-[#111827] flex items-center justify-center gap-2 shadow-lg shadow-[#10B981]/25 transition-all"
               >
                 <UserPlus className="w-4 h-4" />
-                <span>Create Account & Sign In</span>
+                <span>Save & Sign In to ZOVA</span>
               </button>
             </form>
           )}

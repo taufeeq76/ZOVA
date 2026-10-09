@@ -8,16 +8,33 @@ import {
 } from '../types/index.ts';
 import { processComplaintEscalation, isSameSuspect } from '../utils/escalation.ts';
 
+import { CampusDetails, DirectoryContact, EmergencyContact } from '../types/index.ts';
+
 const STORAGE_KEYS = {
-  COMPLAINTS: 'safecampus_complaints_v1',
-  USER: 'safecampus_user_v1',
-  INITIALIZED: 'safecampus_initialized_v1',
+  COMPLAINTS: 'zova_complaints_v2',
+  USER: 'zova_user_v2',
+  CAMPUS: 'zova_campus_v2',
+  REGISTERED: 'zova_registered_v2',
+  INITIALIZED: 'zova_initialized_v2',
+};
+
+export const DEFAULT_CAMPUS: CampusDetails = {
+  collegeName: 'Apex Institute of Science & Technology',
+  campusCode: 'AIST-BLR',
+  city: 'Bangalore',
+  state: 'Karnataka',
+  securityHelpline: '+91 80 2839 0100',
+  antiRaggingEmail: 'antiragging-cell@aist.edu.in',
+  establishedYear: '1998',
 };
 
 export const DEPARTMENTS: Department[] = [
   'Computer Science & Engineering',
   'Mechanical Engineering',
   'Electronics & Communication',
+  'Information Technology',
+  'Biotechnology',
+  'General Administration',
 ];
 
 // Preloaded demo dataset showcasing automatic escalation
@@ -571,20 +588,66 @@ class StorageService {
     return item;
   }
 
-  // Current logged in demo user
+  // Campus details
+  public getCampusDetails(): CampusDetails {
+    if (typeof window === 'undefined') return DEFAULT_CAMPUS;
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.CAMPUS);
+      if (data) return JSON.parse(data);
+    } catch {}
+    this.saveCampusDetails(DEFAULT_CAMPUS);
+    return DEFAULT_CAMPUS;
+  }
+
+  public saveCampusDetails(campus: CampusDetails): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(STORAGE_KEYS.CAMPUS, JSON.stringify(campus));
+  }
+
+  // Registration state
+  public hasRegistered(): boolean {
+    if (typeof window === 'undefined') return true;
+    return localStorage.getItem(STORAGE_KEYS.REGISTERED) === 'true';
+  }
+
+  public setRegistered(status: boolean): void {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(STORAGE_KEYS.REGISTERED, status ? 'true' : 'false');
+  }
+
+  // Current logged in demo / registered user
   public getCurrentUser(): CurrentUser {
+    const campus = this.getCampusDetails();
     if (typeof window === 'undefined') {
-      return { role: 'Student', name: 'Ananya Roy', studentId: 'STU-2024-001' };
+      return {
+        role: 'Student',
+        name: 'Ananya Roy',
+        studentId: 'STU-2024-001',
+        email: 'ananya.roy@student.aist.edu.in',
+        campus,
+        isVerified: true,
+        verificationMethod: 'student_portal',
+      };
     }
     try {
       const data = localStorage.getItem(STORAGE_KEYS.USER);
-      if (data) return JSON.parse(data);
+      if (data) {
+        const parsed = JSON.parse(data);
+        if (!parsed.campus) parsed.campus = campus;
+        if (parsed.isVerified === undefined) parsed.isVerified = true;
+        return parsed;
+      }
     } catch {}
+
     // Default demo user: Student
     const def: CurrentUser = {
       role: 'Student',
       name: 'Ananya Roy',
       studentId: 'STU-2024-001',
+      email: 'ananya.roy@student.aist.edu.in',
+      campus,
+      isVerified: true,
+      verificationMethod: 'student_portal',
     };
     this.setCurrentUser(def);
     return def;
@@ -592,7 +655,35 @@ class StorageService {
 
   public setCurrentUser(user: CurrentUser): void {
     if (typeof window === 'undefined') return;
+    if (!user.campus) user.campus = this.getCampusDetails();
     localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+  }
+
+  // Institutional passkeys verification helper
+  public verifyRolePasskey(passkey: string, role: Role): { success: boolean; message: string } {
+    const clean = passkey.trim();
+    const VALID_KEYS: Record<string, Role[]> = {
+      'ZOVA-DEAN-SECURE': ['Dean'],
+      'ZOVA-HOD-AUTH': ['HOD'],
+      'ZOVA-AUTHORITY-ROOT': ['Higher Authority'],
+      'ZOVA-FACULTY-2026': ['Faculty'],
+      'ZOVA-CAMPUS-ADMIN': ['Dean', 'HOD', 'Higher Authority', 'Faculty', 'Other'],
+    };
+
+    const allowedRoles = VALID_KEYS[clean];
+    if (allowedRoles && allowedRoles.includes(role)) {
+      return { success: true, message: `Passkey accepted! Role verified as ${role}.` };
+    }
+    if (allowedRoles && !allowedRoles.includes(role)) {
+      return {
+        success: false,
+        message: `This passkey is for ${allowedRoles.join('/')}, but your selected role is ${role}.`,
+      };
+    }
+    return {
+      success: false,
+      message: 'Invalid institutional passkey. Contact your campus administrator.',
+    };
   }
 }
 

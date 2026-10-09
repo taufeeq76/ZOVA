@@ -1,6 +1,17 @@
 import React from 'react';
-import { CurrentUser, Role } from '../types/index.ts';
-import { UserCheck, FileText, Search, LayoutDashboard, Info } from 'lucide-react';
+import { CurrentUser } from '../types/index.ts';
+import {
+  UserCheck,
+  FileText,
+  Search,
+  LayoutDashboard,
+  Info,
+  Users,
+  PhoneCall,
+  Building,
+  CheckCircle2,
+  Lock,
+} from 'lucide-react';
 import { ZovaLogo } from './ZovaLogo.tsx';
 
 interface HeaderProps {
@@ -8,6 +19,7 @@ interface HeaderProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onOpenLoginModal: () => void;
+  onOpenRegistration: () => void;
   onResetDemoData: () => void;
 }
 
@@ -16,19 +28,39 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   setActiveTab,
   onOpenLoginModal,
+  onOpenRegistration,
   onResetDemoData,
 }) => {
   const isStudent = currentUser.role === 'Student';
+  const campusCode = currentUser.campus?.campusCode || 'AIST-BLR';
 
   return (
     <header className="bg-[#111827] border-b border-[#064E3B]/80 sticky top-0 z-30 shadow-xl shadow-black/40">
-      {/* Top Banner with Official ZOVA Tagline */}
-      <div className="bg-[#064E3B] border-b border-[#10B981]/30 px-4 py-1.5 text-center text-xs text-[#F9FAFB] font-semibold tracking-wide">
-        <span className="text-[#34D399] font-bold">ZOVA</span>
-        <span className="mx-2 text-[#10B981]">·</span>
-        <span className="tracking-wider">Safer Campus. Stronger You.</span>
-        <span className="mx-2 hidden sm:inline text-[#10B981]">·</span>
-        <span className="hidden sm:inline text-slate-200">Confidential Reporting & Automatic Escalation</span>
+      {/* Top Banner with Official ZOVA Tagline & Active Campus */}
+      <div className="bg-[#064E3B] border-b border-[#10B981]/30 px-4 py-1.5 text-center text-xs text-[#F9FAFB] font-semibold tracking-wide flex items-center justify-between">
+        <div className="hidden sm:flex items-center gap-2 text-[11px] text-slate-300">
+          <Building className="w-3.5 h-3.5 text-[#10B981]" />
+          <span>{currentUser.campus?.collegeName || 'Campus'}</span>
+          <span className="px-1.5 py-0.2 rounded bg-[#064E3B]/80 text-[#34D399] border border-[#10B981]/40 font-mono text-[10px]">
+            {campusCode}
+          </span>
+        </div>
+
+        <div className="mx-auto sm:mx-0">
+          <span className="text-[#34D399] font-bold">ZOVA</span>
+          <span className="mx-2 text-[#10B981]">·</span>
+          <span className="tracking-wider">Safer Campus. Stronger You.</span>
+          <span className="mx-2 hidden md:inline text-[#10B981]">·</span>
+          <span className="hidden md:inline text-slate-200">Confidential Anti-Ragging Ecosystem</span>
+        </div>
+
+        <button
+          onClick={() => setActiveTab('emergency')}
+          className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-950/80 hover:bg-rose-900 border border-rose-500/50 text-[11px] text-rose-300 font-bold transition-all shadow-sm"
+        >
+          <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
+          <span>24/7 Helplines</span>
+        </button>
       </div>
 
       {/* Main Navbar */}
@@ -44,8 +76,8 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        {/* Navigation Tabs (Role Protected) */}
-        <nav className="flex items-center gap-1 sm:gap-2">
+        {/* Navigation Tabs */}
+        <nav className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
           {isStudent ? (
             <>
               <button
@@ -81,10 +113,37 @@ export const Header: React.FC<HeaderProps> = ({
               }`}
             >
               <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>{currentUser.role} Dashboard</span>
+              <span>{currentUser.role === 'Other' ? (currentUser.customRoleTitle || 'Custom Role') : currentUser.role} Dashboard</span>
             </button>
           )}
 
+          {/* Campus Directory Tab */}
+          <button
+            onClick={() => setActiveTab('directory')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              activeTab === 'directory'
+                ? 'bg-[#10B981] text-[#111827] font-bold shadow-md shadow-[#10B981]/25'
+                : 'text-slate-300 hover:text-[#F9FAFB] hover:bg-[#064E3B]/60'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            <span>Campus Directory</span>
+          </button>
+
+          {/* Emergency Helplines Tab */}
+          <button
+            onClick={() => setActiveTab('emergency')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
+              activeTab === 'emergency'
+                ? 'bg-rose-600 text-white font-bold shadow-md shadow-rose-600/30'
+                : 'text-slate-300 hover:text-white hover:bg-rose-950/60'
+            }`}
+          >
+            <PhoneCall className="w-3.5 h-3.5 text-rose-400" />
+            <span>Emergency Contacts</span>
+          </button>
+
+          {/* About ZOVA */}
           <button
             onClick={() => setActiveTab('about')}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${
@@ -94,26 +153,49 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <Info className="w-3.5 h-3.5" />
-            <span>About ZOVA</span>
+            <span>About</span>
           </button>
         </nav>
 
-        {/* User Role Badge & Switch Role */}
+        {/* User Role Badge, Campus Setup & Switch Role */}
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#111827] border border-[#064E3B] text-xs">
+          {/* User Profile Capsule */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#111827] border border-[#064E3B] text-xs">
             <div className="flex flex-col text-right">
-              <span className="font-semibold text-[#F9FAFB]">{currentUser.name}</span>
+              <div className="flex items-center justify-end gap-1">
+                <span className="font-bold text-[#F9FAFB]">{currentUser.name}</span>
+                {currentUser.isVerified ? (
+                  <span title="Verified Role">
+                    <CheckCircle2 className="w-3 h-3 text-[#10B981]" />
+                  </span>
+                ) : (
+                  <span title="Unverified Role (Pending Passkey)">
+                    <Lock className="w-3 h-3 text-amber-400" />
+                  </span>
+                )}
+              </div>
               <span className="text-[10px] text-[#10B981] font-semibold">
-                {currentUser.role}
+                {currentUser.role === 'Other' ? (currentUser.customRoleTitle || 'Staff') : currentUser.role}
                 {currentUser.role === 'HOD' && currentUser.department ? ` (${currentUser.department.split(' ')[0]})` : ''}
               </span>
             </div>
+
+            {/* Persona Switcher Button */}
             <button
               onClick={onOpenLoginModal}
-              className="ml-1 p-1 text-slate-300 hover:text-[#F9FAFB] rounded hover:bg-[#064E3B] transition-colors"
-              title="Switch demo persona or role"
+              className="ml-1 p-1 text-slate-300 hover:text-[#F9FAFB] rounded-lg hover:bg-[#064E3B] transition-colors"
+              title="Switch demo persona or user account"
             >
               <UserCheck className="w-4 h-4 text-[#10B981]" />
+            </button>
+
+            {/* Campus Registration / Profile Settings Button */}
+            <button
+              onClick={onOpenRegistration}
+              className="p-1 text-slate-300 hover:text-[#F9FAFB] rounded-lg hover:bg-[#064E3B] transition-colors"
+              title="Campus & Profile Settings (Edit College/Role)"
+            >
+              <Building className="w-4 h-4 text-[#34D399]" />
             </button>
           </div>
 

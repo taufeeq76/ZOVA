@@ -18,16 +18,27 @@ import {
   MessageSquare,
   AlertOctagon,
   Pin,
-  Calendar,
+  KeyRound,
 } from 'lucide-react';
+import { apiClient } from '../services/apiClient.ts';
 
 interface AuthorityDashboardProps {
   currentUser: CurrentUser;
+  onVerifyUser?: (updatedUser: CurrentUser) => void;
 }
 
-export const AuthorityDashboard: React.FC<AuthorityDashboardProps> = ({ currentUser }) => {
+export const AuthorityDashboard: React.FC<AuthorityDashboardProps> = ({
+  currentUser,
+  onVerifyUser,
+}) => {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [selectedCase, setSelectedCase] = useState<Complaint | null>(null);
+
+  // Passkey verification state for unverified officers
+  const [passkeyInput, setPasskeyInput] = useState<string>('');
+  const [passkeyError, setPasskeyError] = useState<string | null>(null);
+  const [passkeyLoading, setPasskeyLoading] = useState<boolean>(false);
+  const [passkeySuccess, setPasskeySuccess] = useState<string | null>(null);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -40,7 +51,37 @@ export const AuthorityDashboard: React.FC<AuthorityDashboardProps> = ({ currentU
   const [privateNoteInput, setPrivateNoteInput] = useState<string>('');
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
 
+  const handleVerifyPasskeySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passkeyInput.trim()) {
+      setPasskeyError('Please enter an institutional passkey.');
+      return;
+    }
+    setPasskeyLoading(true);
+    setPasskeyError(null);
+    try {
+      const res = await apiClient.verifyRole(passkeyInput, currentUser);
+      if (res.success) {
+        setPasskeySuccess(res.message || 'Passkey verified successfully!');
+        const updated: CurrentUser = {
+          ...currentUser,
+          isVerified: true,
+          verificationMethod: 'institutional_passkey',
+        };
+        storage.setCurrentUser(updated);
+        if (onVerifyUser) onVerifyUser(updated);
+      } else {
+        setPasskeyError(res.message || 'Invalid institutional passkey');
+      }
+    } catch (err: any) {
+      setPasskeyError(err.message || 'Passkey verification failed');
+    } finally {
+      setPasskeyLoading(false);
+    }
+  };
+
   const loadData = () => {
+    if (!currentUser.isVerified) return;
     const all = storage.getComplaints();
 
     // Enforce role-based scoping:
@@ -60,7 +101,6 @@ export const AuthorityDashboard: React.FC<AuthorityDashboardProps> = ({ currentU
 
     setComplaints(scoped);
     if (scoped.length > 0 && !selectedCase) {
-      // Default select the first or top critical case
       setSelectedCase(scoped[0]);
     } else if (selectedCase) {
       const refreshed = scoped.find((c) => c.id === selectedCase.id);
@@ -135,6 +175,115 @@ export const AuthorityDashboard: React.FC<AuthorityDashboardProps> = ({ currentU
   const escalatedCount = complaints.filter((c) => c.currentEscalationLevel > 1).length;
   const resolvedCount = complaints.filter((c) => c.status === 'Closed').length;
 
+  if (!currentUser.isVerified) {
+    return (
+      <div className="max-w-2xl mx-auto py-12 px-4 space-y-6">
+        <div className="p-8 rounded-3xl bg-[#111827] border-2 border-amber-500/50 shadow-2xl text-center space-y-5">
+          <div className="w-16 h-16 rounded-2xl bg-amber-950/60 border border-amber-500/50 text-amber-400 flex items-center justify-center mx-auto shadow-xl">
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div>
+            <span className="px-3 py-1 rounded-full bg-amber-950 text-amber-400 border border-amber-700/50 text-[11px] font-bold uppercase tracking-wider">
+              Server-Side Authorization Required
+            </span>
+            <h1 className="text-2xl font-black text-[#F9FAFB] tracking-tight mt-3">
+              Administrative Access Restricted
+            </h1>
+            <p className="text-xs text-slate-300 mt-2 max-w-lg mx-auto leading-relaxed">
+              You are signed in as <strong>{currentUser.name}</strong> claiming the role of <strong className="text-amber-400">{currentUser.role}</strong>. In compliance with ZOVA security policy, administrative authority is never granted based on an unverified role claim alone.
+            </p>
+          </div>
+
+          {passkeyError && (
+            <div className="p-3 rounded-xl bg-rose-950/60 border border-rose-800 text-rose-300 text-xs flex items-center justify-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+              <span>{passkeyError}</span>
+            </div>
+          )}
+
+          {passkeySuccess && (
+            <div className="p-3 rounded-xl bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-xs flex items-center justify-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
+              <span>{passkeySuccess}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleVerifyPasskeySubmit} className="p-5 rounded-2xl bg-[#064E3B]/20 border border-[#064E3B] space-y-3 text-left">
+            <label className="block text-xs font-bold text-[#F9FAFB]">
+              Enter Official Institutional Passkey:
+            </label>
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <KeyRound className="w-4 h-4 text-[#10B981] absolute left-3 top-3" />
+                <input
+                  type="password"
+                  value={passkeyInput}
+                  onChange={(e) => {
+                    setPasskeyInput(e.target.value);
+                    setPasskeyError(null);
+                  }}
+                  placeholder="Enter passkey to unlock dashboard"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-[#111827] border border-[#064E3B] focus:border-[#10B981] text-xs font-mono text-[#F9FAFB] outline-none"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={passkeyLoading}
+                className="px-5 py-2.5 rounded-xl bg-[#10B981] hover:bg-[#059669] text-xs font-bold text-[#111827] transition-all shadow-md shadow-[#10B981]/20 disabled:opacity-50"
+              >
+                {passkeyLoading ? 'Verifying...' : 'Unlock Console'}
+              </button>
+            </div>
+
+            {/* Quick Testing Passkeys */}
+            <div className="pt-2 border-t border-[#064E3B]/40">
+              <p className="text-[11px] font-semibold text-slate-400 mb-1.5">
+                Quick Test Institutional Keys:
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {currentUser.role === 'HOD' && (
+                  <button
+                    type="button"
+                    onClick={() => setPasskeyInput('ZOVA-HOD-AUTH')}
+                    className="px-2.5 py-1 rounded-lg bg-[#111827] hover:bg-[#064E3B] border border-[#064E3B] text-[10px] font-mono text-[#10B981]"
+                  >
+                    HOD: ZOVA-HOD-AUTH
+                  </button>
+                )}
+                {currentUser.role === 'Dean' && (
+                  <button
+                    type="button"
+                    onClick={() => setPasskeyInput('ZOVA-DEAN-SECURE')}
+                    className="px-2.5 py-1 rounded-lg bg-[#111827] hover:bg-[#064E3B] border border-[#064E3B] text-[10px] font-mono text-[#10B981]"
+                  >
+                    Dean: ZOVA-DEAN-SECURE
+                  </button>
+                )}
+                {currentUser.role === 'Higher Authority' && (
+                  <button
+                    type="button"
+                    onClick={() => setPasskeyInput('ZOVA-AUTHORITY-ROOT')}
+                    className="px-2.5 py-1 rounded-lg bg-[#111827] hover:bg-[#064E3B] border border-[#064E3B] text-[10px] font-mono text-[#10B981]"
+                  >
+                    Authority: ZOVA-AUTHORITY-ROOT
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setPasskeyInput('ZOVA-CAMPUS-ADMIN')}
+                  className="px-2.5 py-1 rounded-lg bg-[#111827] hover:bg-[#064E3B] border border-[#064E3B] text-[10px] font-mono text-slate-300"
+                >
+                  Master: ZOVA-CAMPUS-ADMIN
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 space-y-8">
       {/* Role Scoped Banner */}
@@ -169,6 +318,10 @@ export const AuthorityDashboard: React.FC<AuthorityDashboardProps> = ({ currentU
             <span className="text-slate-300 text-[11px] block">Reviewing Authority</span>
             <span className="font-bold text-[#F9FAFB] text-sm">{currentUser.name}</span>
             <span className="text-[#10B981] block font-mono text-[11px] font-semibold">{currentUser.role}</span>
+            <span className="text-[#34D399] font-bold flex items-center justify-end gap-1 text-[10px] mt-1">
+              <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
+              <span>Verified Officer</span>
+            </span>
           </div>
         </div>
 

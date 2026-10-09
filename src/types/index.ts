@@ -1,9 +1,18 @@
-export type Role = 'Student' | 'HOD' | 'Dean' | 'Higher Authority';
+export type Role =
+  | 'Student'
+  | 'Faculty'
+  | 'HOD'
+  | 'Dean'
+  | 'Higher Authority'
+  | 'Other';
 
 export type Department =
   | 'Computer Science & Engineering'
   | 'Mechanical Engineering'
-  | 'Electronics & Communication';
+  | 'Electronics & Communication'
+  | 'Information Technology'
+  | 'Biotechnology'
+  | 'General Administration';
 
 export type RaggingType = 'offline' | 'online';
 
@@ -90,11 +99,77 @@ export interface Complaint {
   auditLogs: AuditLogEntry[];
   createdAt: string;
   updatedAt: string;
+  campusCode?: string;
+}
+
+export interface CampusDetails {
+  collegeName: string;
+  campusCode: string;
+  city: string;
+  state: string;
+  securityHelpline: string;
+  antiRaggingEmail: string;
+  establishedYear?: string;
 }
 
 export interface CurrentUser {
+  id?: string;
   role: Role;
+  customRoleTitle?: string; // used when role is 'Other', e.g. 'Campus Counsellor', 'Hostel Warden'
   name: string;
+  email?: string;
+  phone?: string;
   studentId?: string;
-  department?: Department; // for HOD
+  employeeId?: string;
+  department?: Department; // for HOD / Faculty
+  campus: CampusDetails;
+  isVerified: boolean; // whether administrative/officer role is verified
+  verificationMethod?: 'institutional_passkey' | 'student_portal' | 'unverified_pending';
+  authToken?: string;
+}
+
+export interface DirectoryContact {
+  id: string;
+  name: string;
+  designation: string;
+  roleType: 'Dean' | 'HOD' | 'Faculty' | 'Counsellor' | 'Security' | 'Warden' | 'Staff';
+  department: string;
+  phone: string;
+  email: string;
+  officeRoom: string;
+  isAvailable: boolean;
+  verifiedCampusBadge: boolean;
+  campusCode: string;
+}
+
+export interface EmergencyContact {
+  id: string;
+  name: string;
+  category:
+    | 'Campus Security'
+    | 'Police & Emergency'
+    | 'Anti-Ragging Helpline'
+    | 'Cyber Crime'
+    | 'Medical & Trauma'
+    | 'Women Safety'
+    | 'Counselling';
+  phone: string;
+  email?: string;
+  hours: string;
+  description: string;
+  isVerified: boolean;
+  isTollFree: boolean;
+  campusSpecific?: boolean;
+  campusCode?: string;
+  recommendedFor?: string[]; // e.g. ['offline', 'Threats/Intimidation', 'online', 'Fake accounts']
+}
+
+export interface College {
+  id: string;
+  name: string;
+  code: string;
+  city: string;
+  state: string;
+  securityHelpline: string;
+  antiRaggingEmail: string;
 }

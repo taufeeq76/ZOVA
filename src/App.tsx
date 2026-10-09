@@ -8,9 +8,15 @@ import { CurrentUser, Role } from './types/index.ts';
 import { storage } from './services/storage.ts';
 import { Header } from './components/Header.tsx';
 import { LoginModal } from './components/LoginModal.tsx';
+import { RegistrationModal } from './components/RegistrationModal.tsx';
+import { RoleVerificationModal } from './components/RoleVerificationModal.tsx';
 import { StudentComplaintForm } from './components/StudentComplaintForm.tsx';
 import { StudentTracking } from './components/StudentTracking.tsx';
 import { AuthorityDashboard } from './components/AuthorityDashboard.tsx';
+import { FacultyDashboard } from './components/FacultyDashboard.tsx';
+import { OtherRoleDashboard } from './components/OtherRoleDashboard.tsx';
+import { CampusDirectoryView } from './components/CampusDirectoryView.tsx';
+import { EmergencyContactsView } from './components/EmergencyContactsView.tsx';
 import { AboutSection } from './components/AboutSection.tsx';
 import { LoadingScreen } from './components/LoadingScreen.tsx';
 import { ZovaShieldIcon } from './components/ZovaLogo.tsx';
@@ -20,14 +26,20 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<CurrentUser>(storage.getCurrentUser());
   const [activeTab, setActiveTab] = useState<string>('report');
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(false);
+  const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState<boolean>(false);
+  const [isRoleVerificationModalOpen, setIsRoleVerificationModalOpen] = useState<boolean>(false);
   const [trackReportId, setTrackReportId] = useState<string>('');
   const [notificationMsg, setNotificationMsg] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Initial loading splash screen
+  // Initial loading splash screen & First launch onboarding check
   useEffect(() => {
     const timer = setTimeout(() => {
       setIsLoading(false);
+      // Trigger first launch registration setup if not yet registered
+      if (!storage.hasRegistered()) {
+        setIsRegistrationModalOpen(true);
+      }
     }, 850);
     return () => clearTimeout(timer);
   }, []);
@@ -56,6 +68,18 @@ export default function App() {
     showToast(`Switched active persona to ${user.name} (${user.role})`);
   };
 
+  const handleSaveRegistrationUser = (user: CurrentUser) => {
+    storage.setRegistered(true);
+    storage.setCurrentUser(user);
+    setCurrentUser(user);
+    if (user.role === 'Student') {
+      setActiveTab('report');
+    } else {
+      setActiveTab('dashboard');
+    }
+    showToast(`Profile & Campus saved for ${user.name} at ${user.campus.collegeName}`);
+  };
+
   const handleResetDemoData = () => {
     storage.resetToDemoData();
     showToast('Demo data reloaded: 3 departments and repeat offenders seeded!');
@@ -72,9 +96,10 @@ export default function App() {
     setActiveTab('track');
   };
 
-  // Block unauthorized routes
   const isStudent = currentUser.role === 'Student';
   const isAuthority = ['HOD', 'Dean', 'Higher Authority'].includes(currentUser.role);
+  const isFaculty = currentUser.role === 'Faculty';
+  const isOther = currentUser.role === 'Other';
 
   if (isLoading) {
     return <LoadingScreen message="Initializing ZOVA anti-ragging security protocols..." />;
@@ -84,7 +109,10 @@ export default function App() {
     <div className="min-h-screen bg-[#111827] text-[#F9FAFB] flex flex-col font-sans selection:bg-[#10B981] selection:text-[#111827]">
       {/* Toast Notification */}
       {notificationMsg && (
-        <aside aria-label="Status notifications" className="fixed bottom-4 right-4 z-50 p-3.5 rounded-xl bg-[#064E3B] text-[#F9FAFB] border border-[#10B981]/70 text-xs font-semibold shadow-2xl shadow-black/80 flex items-center gap-2 animate-bounce">
+        <aside
+          aria-label="Status notifications"
+          className="fixed bottom-4 right-4 z-50 p-3.5 rounded-xl bg-[#064E3B] text-[#F9FAFB] border border-[#10B981]/70 text-xs font-semibold shadow-2xl shadow-black/80 flex items-center gap-2 animate-bounce"
+        >
           <ZovaShieldIcon className="w-5 h-5 !p-0.5" />
           <span>{notificationMsg}</span>
         </aside>
@@ -96,6 +124,7 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         onOpenLoginModal={() => setIsLoginModalOpen(true)}
+        onOpenRegistration={() => setIsRegistrationModalOpen(true)}
         onResetDemoData={handleResetDemoData}
       />
 
@@ -106,6 +135,7 @@ export default function App() {
           <StudentComplaintForm
             currentUser={currentUser}
             onTrackReport={handleTrackReport}
+            onOpenEmergencyHelplines={() => setActiveTab('emergency')}
           />
         )}
 
@@ -117,9 +147,50 @@ export default function App() {
           />
         )}
 
-        {/* AUTHORITY VIEWS (HOD, Dean, Higher Authority) */}
+        {/* ROLE BASED DASHBOARDS */}
+        {/* 1. Authority View (HOD, Dean, Higher Authority) */}
         {isAuthority && activeTab === 'dashboard' && (
-          <AuthorityDashboard currentUser={currentUser} />
+          <AuthorityDashboard
+            currentUser={currentUser}
+            onVerifyUser={(updated) => {
+              storage.setCurrentUser(updated);
+              setCurrentUser(updated);
+              showToast(`Officer role verified: ${updated.role}`);
+            }}
+          />
+        )}
+
+        {/* 2. Faculty View */}
+        {isFaculty && activeTab === 'dashboard' && (
+          <FacultyDashboard
+            currentUser={currentUser}
+            onOpenDirectory={() => setActiveTab('directory')}
+            onOpenEmergency={() => setActiveTab('emergency')}
+            onOpenVerification={() => setIsRoleVerificationModalOpen(true)}
+          />
+        )}
+
+        {/* 3. Custom Other Role View (Counsellor, Warden, Staff) */}
+        {isOther && activeTab === 'dashboard' && (
+          <OtherRoleDashboard
+            currentUser={currentUser}
+            onOpenDirectory={() => setActiveTab('directory')}
+            onOpenEmergency={() => setActiveTab('emergency')}
+            onOpenVerification={() => setIsRoleVerificationModalOpen(true)}
+          />
+        )}
+
+        {/* CAMPUS DIRECTORY VIEW (All Roles) */}
+        {activeTab === 'directory' && (
+          <CampusDirectoryView currentUser={currentUser} />
+        )}
+
+        {/* EMERGENCY HELPLINES VIEW (All Roles) */}
+        {activeTab === 'emergency' && (
+          <EmergencyContactsView
+            currentUser={currentUser}
+            onOpenReportForm={() => setActiveTab('report')}
+          />
         )}
 
         {/* Role Guard: If Student accidentally targets dashboard or Authority targets report */}
@@ -176,13 +247,25 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-4 text-slate-400">
-            <button onClick={() => setActiveTab('about')} className="hover:text-[#10B981] transition-colors">
-              Escalation Policy
+            <button
+              onClick={() => setActiveTab('directory')}
+              className="hover:text-[#10B981] transition-colors"
+            >
+              Campus Directory
             </button>
-            <button onClick={() => setActiveTab('about')} className="hover:text-[#10B981] transition-colors">
-              Privacy Shield
+            <button
+              onClick={() => setActiveTab('emergency')}
+              className="hover:text-rose-400 transition-colors"
+            >
+              Emergency Helplines
             </button>
-            <span className="font-mono text-slate-400 text-[11px]">ZOVA-2026-RELEASE</span>
+            <button
+              onClick={() => setActiveTab('about')}
+              className="hover:text-[#10B981] transition-colors"
+            >
+              Escalation Matrix
+            </button>
+            <span className="font-mono text-slate-400 text-[11px]">ZOVA-2026-PRO</span>
           </div>
         </div>
       </footer>
@@ -193,6 +276,28 @@ export default function App() {
         onClose={() => setIsLoginModalOpen(false)}
         currentUser={currentUser}
         onSelectUser={handleSelectUser}
+        onOpenFullRegistration={() => setIsRegistrationModalOpen(true)}
+      />
+
+      {/* Registration & Campus Profile Setup Wizard */}
+      <RegistrationModal
+        isOpen={isRegistrationModalOpen}
+        onClose={() => setIsRegistrationModalOpen(false)}
+        currentUser={currentUser}
+        onSaveUser={handleSaveRegistrationUser}
+        isFirstLaunch={!storage.hasRegistered()}
+      />
+
+      {/* Role Verification Passkey Modal */}
+      <RoleVerificationModal
+        isOpen={isRoleVerificationModalOpen}
+        onClose={() => setIsRoleVerificationModalOpen(false)}
+        currentUser={currentUser}
+        onVerificationSuccess={(updated) => {
+          storage.setCurrentUser(updated);
+          setCurrentUser(updated);
+          showToast(`Role verification successful: ${updated.role}`);
+        }}
       />
     </div>
   );
