@@ -11,6 +11,7 @@ import {
   Building,
   CheckCircle2,
   Lock,
+  ShieldAlert,
 } from 'lucide-react';
 import { ZovaLogo } from './ZovaLogo.tsx';
 
@@ -21,6 +22,7 @@ interface HeaderProps {
   onOpenLoginModal: () => void;
   onOpenRegistration: () => void;
   onResetDemoData: () => void;
+  onOpenSOSWidget?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -30,6 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenLoginModal,
   onOpenRegistration,
   onResetDemoData,
+  onOpenSOSWidget,
 }) => {
   const isStudent = currentUser.role === 'Student';
   const campusCode = currentUser.campus?.campusCode || 'AIST-BLR';
@@ -51,16 +54,29 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="mx-2 text-[#10B981]">·</span>
           <span className="tracking-wider">Safer Campus. Stronger You.</span>
           <span className="mx-2 hidden md:inline text-[#10B981]">·</span>
-          <span className="hidden md:inline text-slate-200">Confidential Anti-Ragging Ecosystem</span>
+          <span className="hidden md:inline text-slate-200">Zero-Tolerance Anti-Ragging Network</span>
         </div>
 
-        <button
-          onClick={() => setActiveTab('emergency')}
-          className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-950/80 hover:bg-rose-900 border border-rose-500/50 text-[11px] text-rose-300 font-bold transition-all shadow-sm"
-        >
-          <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
-          <span>24/7 Helplines</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {onOpenSOSWidget && (
+            <button
+              onClick={onOpenSOSWidget}
+              className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-600 hover:bg-rose-500 text-[11px] text-white font-extrabold transition-all shadow-md shadow-rose-950 animate-pulse"
+              title="Launch Live Emergency SOS"
+            >
+              <ShieldAlert className="w-3 h-3" />
+              <span>SOS ACTIVE</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => setActiveTab('emergency')}
+            className="hidden sm:flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-950/80 hover:bg-rose-900 border border-rose-500/50 text-[11px] text-rose-300 font-bold transition-all shadow-sm"
+          >
+            <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping" />
+            <span>24/7 Helplines</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Navbar */}
@@ -141,6 +157,24 @@ export const Header: React.FC<HeaderProps> = ({
           >
             <PhoneCall className="w-3.5 h-3.5 text-rose-400" />
             <span>Emergency Contacts</span>
+          </button>
+
+          {/* Emergency Campus SOS Widget */}
+          <button
+            onClick={() => {
+              if (onOpenSOSWidget) onOpenSOSWidget();
+              else setActiveTab('sos');
+            }}
+            className={`px-3 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition-all ${
+              activeTab === 'sos'
+                ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/50 ring-2 ring-rose-400'
+                : 'bg-rose-600/90 hover:bg-rose-600 text-white shadow-md shadow-rose-950/80 ring-1 ring-rose-500/40'
+            }`}
+            title="Emergency Campus SOS Widget"
+          >
+            <ShieldAlert className="w-3.5 h-3.5 text-white animate-pulse" />
+            <span>SOS Widget</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping ml-0.5" />
           </button>
 
           {/* About ZOVA */}

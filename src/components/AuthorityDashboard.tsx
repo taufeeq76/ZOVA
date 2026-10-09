@@ -19,8 +19,10 @@ import {
   AlertOctagon,
   Pin,
   KeyRound,
+  ShieldAlert,
 } from 'lucide-react';
 import { apiClient } from '../services/apiClient.ts';
+import { AuthoritySOSDashboard } from './AuthoritySOSDashboard.tsx';
 
 interface AuthorityDashboardProps {
   currentUser: CurrentUser;
@@ -33,6 +35,7 @@ export const AuthorityDashboard: React.FC<AuthorityDashboardProps> = ({
 }) => {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [selectedCase, setSelectedCase] = useState<Complaint | null>(null);
+  const [dashboardSubTab, setDashboardSubTab] = useState<'complaints' | 'sos'>('complaints');
 
   // Passkey verification state for unverified officers
   const [passkeyInput, setPasskeyInput] = useState<string>('');
@@ -361,8 +364,40 @@ export const AuthorityDashboard: React.FC<AuthorityDashboardProps> = ({
         </div>
       </div>
 
-      {/* Filter Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-[#111827] border border-[#064E3B] text-xs shadow-md">
+      {/* Officer Operational Tabs: Complaints vs SOS Emergency Center */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-[#064E3B] pb-4">
+        <button
+          onClick={() => setDashboardSubTab('complaints')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            dashboardSubTab === 'complaints'
+              ? 'bg-[#10B981] text-[#111827] shadow-lg shadow-[#10B981]/20'
+              : 'bg-[#111827] text-slate-300 hover:text-white border border-[#064E3B]'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Formal Harassment Complaints ({complaints.length})</span>
+        </button>
+
+        <button
+          onClick={() => setDashboardSubTab('sos')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 relative ${
+            dashboardSubTab === 'sos'
+              ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30'
+              : 'bg-[#111827] text-slate-300 hover:text-white border border-rose-900/60'
+          }`}
+        >
+          <ShieldAlert className="w-4 h-4 text-rose-300" />
+          <span>Live Emergency SOS Center</span>
+          <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping ml-1" />
+        </button>
+      </div>
+
+      {dashboardSubTab === 'sos' ? (
+        <AuthoritySOSDashboard currentUser={currentUser} />
+      ) : (
+        <>
+          {/* Filter Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-xl bg-[#111827] border border-[#064E3B] text-xs shadow-md">
         <div className="flex items-center gap-2 flex-wrap">
           <Filter className="w-4 h-4 text-[#10B981]" />
           <span className="text-slate-300">Filters:</span>
@@ -785,6 +820,8 @@ export const AuthorityDashboard: React.FC<AuthorityDashboardProps> = ({
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 };

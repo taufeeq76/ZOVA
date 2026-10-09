@@ -227,6 +227,178 @@ async function startServer() {
   });
 
   // ==========================================
+  // EMERGENCY SOS ENDPOINTS (LIVE HARASSMENT & RAGGING PREVENTION)
+  // ==========================================
+
+  // Trigger an emergency SOS alert
+  app.post('/api/sos/trigger', (req, res) => {
+    try {
+      const { student, location, triggerMode, locationError } = req.body;
+      if (!student || !student.name) {
+        res.status(400).json({ error: 'Valid authenticated student profile required to trigger SOS' });
+        return;
+      }
+
+      const incident = serverDb.triggerSOS({
+        student,
+        location: location || null,
+        triggerMode: triggerMode || 'hold_press',
+        locationError,
+      });
+
+      res.status(201).json({
+        incident,
+        message: 'Emergency SOS broadcasted successfully. Campus responders notified.',
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to trigger emergency SOS' });
+    }
+  });
+
+  // Get active SOS incidents for authorities & live synchronization
+  app.get('/api/sos/active', (req, res) => {
+    try {
+      const campusCode = (req.query.campusCode as string) || (req.headers['x-zova-campus'] as string);
+      const activeIncidents = serverDb.getActiveSOS(campusCode);
+      res.json({ activeIncidents });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to fetch active SOS incidents' });
+    }
+  });
+
+  // Get incident details by ID
+  app.get('/api/sos/:id', (req, res) => {
+    try {
+      const incident = serverDb.getSOSById(req.params.id);
+      if (!incident) {
+        res.status(404).json({ error: 'Emergency SOS incident not found' });
+        return;
+      }
+      res.json({ incident });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to fetch incident' });
+    }
+  });
+
+  // Acknowledge SOS alert (Authority only)
+  app.post('/api/sos/:id/acknowledge', (req, res) => {
+    try {
+      const actorRole = (req.headers['x-zova-role'] as Role) || req.body.actorRole || 'Dean';
+      const actorName = (req.headers['x-zova-name'] as string) || req.body.actorName || 'Campus Responder';
+
+      const incident = serverDb.acknowledgeSOS(req.params.id, actorRole, actorName);
+      if (!incident) {
+        res.status(404).json({ error: 'Emergency incident not found' });
+        return;
+      }
+
+      res.json({
+        incident,
+        message: `Alert acknowledged by ${actorRole} (${actorName}). First responder dispatched.`,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to acknowledge alert' });
+    }
+  });
+
+  // Update SOS status (e.g. Response in progress, Resolved, Escalated)
+  app.post('/api/sos/:id/status', (req, res) => {
+    try {
+      const { status, note, actorRole, actorName } = req.body;
+      const role = (req.headers['x-zova-role'] as Role) || actorRole || 'Dean';
+      const name = (req.headers['x-zova-name'] as string) || actorName || 'Campus Authority';
+
+      const updated = serverDb.updateSOSStatus(req.params.id, status, role, name, note);
+      if (!updated) {
+        res.status(404).json({ error: 'Emergency incident not found' });
+        return;
+      }
+
+      res.json({ incident: updated });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to update incident status' });
+    }
+  });
+
+  // Cancel SOS alert (Student or Authority)
+  app.post('/api/sos/:id/cancel', (req, res) => {
+    try {
+      const { cancelledBy, actorName, reason } = req.body;
+      const who = cancelledBy || (req.headers['x-zova-role'] === 'Student' ? 'Student' : 'Authority');
+      const name = actorName || (req.headers['x-zova-name'] as string) || 'Student';
+
+      const updated = serverDb.cancelSOS(req.params.id, who, name, reason);
+      if (!updated) {
+        res.status(404).json({ error: 'Emergency incident not found' });
+        return;
+      }
+
+      res.json({
+        incident: updated,
+        message: 'Emergency alert cancelled. Responders stood down.',
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to cancel incident' });
+    }
+  });
+
+  // Update live streaming location during active emergency
+  app.post('/api/sos/:id/location', (req, res) => {
+    try {
+      const { location } = req.body;
+      if (!location || typeof location.latitude !== 'number') {
+        res.status(400).json({ error: 'Valid location coordinates required' });
+        return;
+      }
+
+      const updated = serverDb.updateSOSLocation(req.params.id, location);
+      if (!updated) {
+        res.status(404).json({ error: 'Emergency incident not found or resolved' });
+        return;
+      }
+
+      res.json({ success: true, incident: updated });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to update emergency location' });
+    }
+  });
+
+  // Add responder dispatch note to SOS incident
+  app.post('/api/sos/:id/dispatch-note', (req, res) => {
+    try {
+      const { text, authorRole, authorName } = req.body;
+      const role = (req.headers['x-zova-role'] as Role) || authorRole || 'Higher Authority';
+      const name = (req.headers['x-zova-name'] as string) || authorName || 'Responder';
+
+      if (!text || !text.trim()) {
+        res.status(400).json({ error: 'Dispatch note text is required' });
+        return;
+      }
+
+      const updated = serverDb.addSOSDispatchNote(req.params.id, role, name, text);
+      if (!updated) {
+        res.status(404).json({ error: 'Emergency incident not found' });
+        return;
+      }
+
+      res.json({ incident: updated });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to post dispatch note' });
+    }
+  });
+
+  // Get SOS incident history
+  app.get('/api/sos-history', (req, res) => {
+    try {
+      const campusCode = (req.query.campusCode as string) || (req.headers['x-zova-campus'] as string);
+      const history = serverDb.getSOSHistory(campusCode);
+      res.json({ history });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message || 'Failed to fetch SOS history' });
+    }
+  });
+
+  // ==========================================
   // COLLEGES & CAMPUSES ENDPOINTS
   // ==========================================
 

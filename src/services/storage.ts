@@ -8,7 +8,12 @@ import {
 } from '../types/index.ts';
 import { processComplaintEscalation, isSameSuspect } from '../utils/escalation.ts';
 
-import { CampusDetails, DirectoryContact, EmergencyContact } from '../types/index.ts';
+import {
+  CampusDetails,
+  DirectoryContact,
+  EmergencyContact,
+  SOSWidgetPreferences,
+} from '../types/index.ts';
 
 const STORAGE_KEYS = {
   COMPLAINTS: 'zova_complaints_v2',
@@ -16,6 +21,19 @@ const STORAGE_KEYS = {
   CAMPUS: 'zova_campus_v2',
   REGISTERED: 'zova_registered_v2',
   INITIALIZED: 'zova_initialized_v2',
+  SOS_PREFS: 'zova_sos_prefs_v2',
+  ACTIVE_SOS_ID: 'zova_active_sos_id_v2',
+  OFFLINE_SOS_QUEUE: 'zova_offline_sos_queue_v2',
+};
+
+export const DEFAULT_SOS_PREFS: SOSWidgetPreferences = {
+  activationGesture: 'hold_to_activate',
+  holdDurationSeconds: 2,
+  countdownGracePeriodSeconds: 5,
+  enableHaptics: true,
+  enableAudioFeedback: true,
+  stealthDisguiseMode: false,
+  autoShareLocation: true,
 };
 
 export const DEFAULT_CAMPUS: CampusDetails = {
@@ -684,6 +702,67 @@ class StorageService {
       success: false,
       message: 'Invalid institutional passkey. Contact your campus administrator.',
     };
+  }
+
+  // SOS Preferences & Offline Management
+  public getSOSPreferences(): SOSWidgetPreferences {
+    if (typeof window === 'undefined') return DEFAULT_SOS_PREFS;
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.SOS_PREFS);
+      if (data) return { ...DEFAULT_SOS_PREFS, ...JSON.parse(data) };
+    } catch {}
+    return DEFAULT_SOS_PREFS;
+  }
+
+  public saveSOSPreferences(prefs: SOSWidgetPreferences): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.setItem(STORAGE_KEYS.SOS_PREFS, JSON.stringify(prefs));
+    } catch {}
+  }
+
+  public getActiveSOSId(): string | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      return localStorage.getItem(STORAGE_KEYS.ACTIVE_SOS_ID);
+    } catch {}
+    return null;
+  }
+
+  public setActiveSOSId(id: string | null): void {
+    if (typeof window === 'undefined') return;
+    try {
+      if (id) {
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_SOS_ID, id);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.ACTIVE_SOS_ID);
+      }
+    } catch {}
+  }
+
+  public enqueueOfflineSOS(item: any): void {
+    if (typeof window === 'undefined') return;
+    try {
+      const queue = this.getOfflineSOSQueue();
+      queue.push(item);
+      localStorage.setItem(STORAGE_KEYS.OFFLINE_SOS_QUEUE, JSON.stringify(queue));
+    } catch {}
+  }
+
+  public getOfflineSOSQueue(): any[] {
+    if (typeof window === 'undefined') return [];
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.OFFLINE_SOS_QUEUE);
+      if (data) return JSON.parse(data);
+    } catch {}
+    return [];
+  }
+
+  public clearOfflineSOSQueue(): void {
+    if (typeof window === 'undefined') return;
+    try {
+      localStorage.removeItem(STORAGE_KEYS.OFFLINE_SOS_QUEUE);
+    } catch {}
   }
 }
 

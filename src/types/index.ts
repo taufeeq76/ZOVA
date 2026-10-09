@@ -173,3 +173,92 @@ export interface College {
   securityHelpline: string;
   antiRaggingEmail: string;
 }
+
+// ==========================================
+// EMERGENCY CAMPUS SOS TYPES
+// ==========================================
+
+export type SOSIncidentStatus =
+  | 'Triggered'
+  | 'Pending delivery'
+  | 'Delivered'
+  | 'Acknowledged'
+  | 'Response in progress'
+  | 'Resolved'
+  | 'Cancelled'
+  | 'Escalated'
+  | 'Delivery failed';
+
+export interface SOSLocation {
+  latitude: number;
+  longitude: number;
+  accuracy: number; // in meters
+  timestamp: string;
+  campusZone?: string; // e.g. "Library Quad", "Hostel Block A", "Main Gate"
+  addressHint?: string;
+}
+
+export interface SOSDispatchNote {
+  id: string;
+  authorRole: Role;
+  authorName: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface SOSAuditLog {
+  id: string;
+  timestamp: string;
+  action: string;
+  actorRole: string;
+  actorName: string;
+  details: string;
+}
+
+export interface SOSIncident {
+  id: string; // e.g. "SOS-2026-9021"
+  studentId: string;
+  studentName: string;
+  studentPhone?: string;
+  studentDepartment?: Department;
+  campusCode: string;
+  campusName: string;
+  status: SOSIncidentStatus;
+  location: SOSLocation | null;
+  locationHistory: SOSLocation[];
+  locationError?: string;
+  triggerMode: 'hold_press' | 'instant_tap' | 'discreet_stealth' | 'widget_shortcut';
+  triggeredAt: string;
+  deliveredAt?: string;
+  acknowledgedAt?: string;
+  acknowledgedBy?: {
+    name: string;
+    role: Role;
+  };
+  responseStartedAt?: string;
+  resolvedAt?: string;
+  resolvedBy?: {
+    name: string;
+    role: Role;
+    resolutionNote?: string;
+  };
+  cancelledAt?: string;
+  cancelledBy?: 'Student' | 'Authority';
+  cancellationReason?: string;
+  escalatedAt?: string;
+  escalatedReason?: string;
+  dispatchNotes: SOSDispatchNote[];
+  auditLogs: SOSAuditLog[];
+  updatedAt: string;
+}
+
+export interface SOSWidgetPreferences {
+  activationGesture: 'hold_to_activate' | 'instant_countdown' | 'double_tap';
+  holdDurationSeconds: number; // default 2
+  countdownGracePeriodSeconds: number; // default 5
+  enableHaptics: boolean;
+  enableAudioFeedback: boolean;
+  stealthDisguiseMode: boolean; // default false, user can toggle
+  autoShareLocation: boolean;
+  preferredEmergencyContactId?: string;
+}

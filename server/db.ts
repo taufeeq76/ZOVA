@@ -7,6 +7,11 @@ import {
   CurrentUser,
   Role,
   ComplaintStatus,
+  SOSIncident,
+  SOSIncidentStatus,
+  SOSLocation,
+  SOSDispatchNote,
+  SOSAuditLog,
 } from '../src/types/index.ts';
 
 // Predefined verified institutional passkeys for testing and campus administration
@@ -481,6 +486,103 @@ class ServerDatabase {
   private emergencyContacts: EmergencyContact[] = [...DEFAULT_EMERGENCY_CONTACTS];
   private colleges: College[] = [...DEFAULT_COLLEGES];
   private registeredUsers: Map<string, CurrentUser> = new Map();
+  private sosIncidents: SOSIncident[] = [
+    {
+      id: 'SOS-2026-8921',
+      studentId: 'STU-2024-001',
+      studentName: 'Ananya Roy',
+      studentPhone: '+91 98765 11223',
+      studentDepartment: 'Computer Science & Engineering',
+      campusCode: 'AIST-BLR',
+      campusName: 'Apex Institute of Science & Technology',
+      status: 'Response in progress',
+      location: {
+        latitude: 12.9716,
+        longitude: 77.5946,
+        accuracy: 5.4,
+        timestamp: new Date(Date.now() - 150000).toISOString(),
+        campusZone: 'Hostel Block A - Courtyard',
+        addressHint: 'Between Senior Hostel and Dining Hall Gate',
+      },
+      locationHistory: [
+        {
+          latitude: 12.9712,
+          longitude: 77.5942,
+          accuracy: 8.2,
+          timestamp: new Date(Date.now() - 210000).toISOString(),
+          campusZone: 'Hostel Block A - Walkway',
+        },
+        {
+          latitude: 12.9716,
+          longitude: 77.5946,
+          accuracy: 5.4,
+          timestamp: new Date(Date.now() - 150000).toISOString(),
+          campusZone: 'Hostel Block A - Courtyard',
+          addressHint: 'Between Senior Hostel and Dining Hall Gate',
+        },
+      ],
+      triggerMode: 'hold_press',
+      triggeredAt: new Date(Date.now() - 210000).toISOString(),
+      deliveredAt: new Date(Date.now() - 208000).toISOString(),
+      acknowledgedAt: new Date(Date.now() - 180000).toISOString(),
+      acknowledgedBy: {
+        name: 'Dean Robert Sterling',
+        role: 'Dean',
+      },
+      responseStartedAt: new Date(Date.now() - 150000).toISOString(),
+      dispatchNotes: [
+        {
+          id: 'disp-sos-1',
+          authorRole: 'Dean',
+          authorName: 'Dean Robert Sterling',
+          text: 'Verified SOS alert received. Quick Response Team dispatched to Hostel Block A.',
+          timestamp: new Date(Date.now() - 175000).toISOString(),
+        },
+        {
+          id: 'disp-sos-2',
+          authorRole: 'Higher Authority',
+          authorName: 'CSO R. Mehta (Security)',
+          text: 'Security Patrol Car 2 positioned at Courtyard entrance. Contact established with hostel warden.',
+          timestamp: new Date(Date.now() - 120000).toISOString(),
+        },
+      ],
+      auditLogs: [
+        {
+          id: 'aud-sos-1',
+          timestamp: new Date(Date.now() - 210000).toISOString(),
+          action: 'SOS_TRIGGERED',
+          actorRole: 'Student',
+          actorName: 'Ananya Roy',
+          details: 'Emergency SOS activated via Press-and-Hold gesture. Location acquired with 8.2m accuracy.',
+        },
+        {
+          id: 'aud-sos-2',
+          timestamp: new Date(Date.now() - 208000).toISOString(),
+          action: 'DELIVERED',
+          actorRole: 'System',
+          actorName: 'ZOVA High-Priority Gateway',
+          details: 'Alert delivered to campus proctor, security control room, and dean console.',
+        },
+        {
+          id: 'aud-sos-3',
+          timestamp: new Date(Date.now() - 180000).toISOString(),
+          action: 'ACKNOWLEDGED',
+          actorRole: 'Dean',
+          actorName: 'Dean Robert Sterling',
+          details: 'Emergency acknowledged. First responder team dispatched.',
+        },
+        {
+          id: 'aud-sos-4',
+          timestamp: new Date(Date.now() - 150000).toISOString(),
+          action: 'RESPONSE_IN_PROGRESS',
+          actorRole: 'Higher Authority',
+          actorName: 'Campus Security Control',
+          details: 'Physical security presence dispatched to coordinates.',
+        },
+      ],
+      updatedAt: new Date(Date.now() - 120000).toISOString(),
+    },
+  ];
 
   constructor() {
     // Seed default demo user
@@ -774,6 +876,297 @@ class ServerDatabase {
     });
 
     return item;
+  }
+
+  // ==========================================
+  // EMERGENCY SOS OPERATIONS
+  // ==========================================
+
+  public triggerSOS(data: {
+    student: CurrentUser;
+    location?: SOSLocation | null;
+    triggerMode?: 'hold_press' | 'instant_tap' | 'discreet_stealth' | 'widget_shortcut';
+    locationError?: string;
+  }): SOSIncident {
+    const now = new Date().toISOString();
+    const id = `SOS-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const incident: SOSIncident = {
+      id,
+      studentId: data.student.studentId || data.student.id || 'STU-ANON',
+      studentName: data.student.name || 'Anonymous Student',
+      studentPhone: data.student.phone || '+91 98765 00000',
+      studentDepartment: data.student.department,
+      campusCode: data.student.campus.campusCode || 'AIST-BLR',
+      campusName: data.student.campus.collegeName || 'Apex Institute of Science & Technology',
+      status: 'Delivered', // Backend acknowledged immediately
+      location: data.location || null,
+      locationHistory: data.location ? [data.location] : [],
+      locationError: data.locationError,
+      triggerMode: data.triggerMode || 'hold_press',
+      triggeredAt: now,
+      deliveredAt: now,
+      dispatchNotes: [
+        {
+          id: `disp-${Date.now()}`,
+          authorRole: 'Higher Authority',
+          authorName: 'ZOVA System',
+          text: `🚨 High-Priority SOS triggered by student. Campus emergency dispatch notified.`,
+          timestamp: now,
+        },
+      ],
+      auditLogs: [
+        {
+          id: `aud-${Date.now()}-1`,
+          timestamp: now,
+          action: 'SOS_TRIGGERED',
+          actorRole: 'Student',
+          actorName: data.student.name,
+          details: `Emergency SOS triggered via ${data.triggerMode || 'gesture'}. ${
+            data.location
+              ? `GPS location locked (lat: ${data.location.latitude.toFixed(4)}, lng: ${data.location.longitude.toFixed(4)}, accuracy: ${data.location.accuracy.toFixed(1)}m).`
+              : `Location unavailable: ${data.locationError || 'GPS not permitted'}.`
+          }`,
+        },
+        {
+          id: `aud-${Date.now()}-2`,
+          timestamp: now,
+          action: 'DELIVERED_TO_OFFICERS',
+          actorRole: 'System',
+          actorName: 'ZOVA Emergency Broker',
+          details: `Broadcast sent to Campus Security, Dean, HOD, and Anti-Ragging Cell.`,
+        },
+      ],
+      updatedAt: now,
+    };
+
+    this.sosIncidents.unshift(incident);
+    return incident;
+  }
+
+  public getActiveSOS(campusCode?: string): SOSIncident[] {
+    this.checkAndAutoEscalateUnacknowledged();
+    return this.sosIncidents.filter((sos) => {
+      const isActive = sos.status !== 'Resolved' && sos.status !== 'Cancelled';
+      if (!isActive) return false;
+      if (!campusCode) return true;
+      return sos.campusCode === campusCode;
+    });
+  }
+
+  public getSOSById(id: string): SOSIncident | null {
+    this.checkAndAutoEscalateUnacknowledged();
+    return this.sosIncidents.find((sos) => sos.id === id) || null;
+  }
+
+  public getSOSHistory(campusCode?: string): SOSIncident[] {
+    if (!campusCode) return this.sosIncidents;
+    return this.sosIncidents.filter((sos) => sos.campusCode === campusCode);
+  }
+
+  public acknowledgeSOS(id: string, actorRole: Role, actorName: string): SOSIncident | null {
+    const incident = this.sosIncidents.find((s) => s.id === id);
+    if (!incident) return null;
+
+    const now = new Date().toISOString();
+    incident.status = 'Acknowledged';
+    incident.acknowledgedAt = now;
+    incident.acknowledgedBy = { name: actorName, role: actorRole };
+    incident.updatedAt = now;
+
+    incident.dispatchNotes.push({
+      id: `disp-${Date.now()}`,
+      authorRole: actorRole,
+      authorName: actorName,
+      text: `Alert acknowledged by ${actorRole} (${actorName}). Emergency response activated.`,
+      timestamp: now,
+    });
+
+    incident.auditLogs.push({
+      id: `aud-${Date.now()}`,
+      timestamp: now,
+      action: 'SOS_ACKNOWLEDGED',
+      actorRole,
+      actorName,
+      details: `Officer acknowledged the alert and took active responsibility.`,
+    });
+
+    return incident;
+  }
+
+  public updateSOSStatus(
+    id: string,
+    status: SOSIncidentStatus,
+    actorRole: Role,
+    actorName: string,
+    note?: string
+  ): SOSIncident | null {
+    const incident = this.sosIncidents.find((s) => s.id === id);
+    if (!incident) return null;
+
+    const now = new Date().toISOString();
+    const oldStatus = incident.status;
+    incident.status = status;
+    incident.updatedAt = now;
+
+    if (status === 'Response in progress' && !incident.responseStartedAt) {
+      incident.responseStartedAt = now;
+    } else if (status === 'Resolved') {
+      incident.resolvedAt = now;
+      incident.resolvedBy = { name: actorName, role: actorRole, resolutionNote: note };
+    } else if (status === 'Escalated') {
+      incident.escalatedAt = now;
+      incident.escalatedReason = note || 'Escalated to higher authorities and external police';
+    }
+
+    if (note && note.trim()) {
+      incident.dispatchNotes.push({
+        id: `disp-${Date.now()}`,
+        authorRole: actorRole,
+        authorName: actorName,
+        text: note.trim(),
+        timestamp: now,
+      });
+    }
+
+    incident.auditLogs.push({
+      id: `aud-${Date.now()}`,
+      timestamp: now,
+      action: `STATUS_CHANGED_${status.toUpperCase().replace(/\s+/g, '_')}`,
+      actorRole,
+      actorName,
+      details: `Status transitioned from "${oldStatus}" to "${status}". ${note ? `Note: ${note}` : ''}`,
+    });
+
+    return incident;
+  }
+
+  public cancelSOS(
+    id: string,
+    cancelledBy: 'Student' | 'Authority',
+    actorName: string,
+    reason?: string
+  ): SOSIncident | null {
+    const incident = this.sosIncidents.find((s) => s.id === id);
+    if (!incident) return null;
+
+    const now = new Date().toISOString();
+    incident.status = 'Cancelled';
+    incident.cancelledAt = now;
+    incident.cancelledBy = cancelledBy;
+    incident.cancellationReason = reason || 'False alarm / Accidental activation';
+    incident.updatedAt = now;
+
+    incident.dispatchNotes.push({
+      id: `disp-${Date.now()}`,
+      authorRole: (cancelledBy === 'Student' ? 'Student' : 'Higher Authority') as Role,
+      authorName: actorName,
+      text: `Alert cancelled: "${reason || 'Accidental activation / False alarm'}". Responders stand down.`,
+      timestamp: now,
+    });
+
+    incident.auditLogs.push({
+      id: `aud-${Date.now()}`,
+      timestamp: now,
+      action: 'SOS_CANCELLED',
+      actorRole: cancelledBy,
+      actorName,
+      details: `Emergency cancelled. Reason: ${reason || 'Accidental activation / Student safe'}. Authorities notified of cancellation.`,
+    });
+
+    return incident;
+  }
+
+  public updateSOSLocation(id: string, location: SOSLocation): SOSIncident | null {
+    const incident = this.sosIncidents.find((s) => s.id === id);
+    if (!incident) return null;
+
+    // Do not update location if incident is resolved or cancelled
+    if (incident.status === 'Resolved' || incident.status === 'Cancelled') {
+      return incident;
+    }
+
+    const now = new Date().toISOString();
+    incident.location = location;
+    if (!incident.locationHistory) incident.locationHistory = [];
+    incident.locationHistory.push(location);
+    if (incident.locationHistory.length > 50) {
+      incident.locationHistory.shift();
+    }
+    incident.updatedAt = now;
+
+    return incident;
+  }
+
+  public addSOSDispatchNote(
+    id: string,
+    authorRole: Role,
+    authorName: string,
+    text: string
+  ): SOSIncident | null {
+    const incident = this.sosIncidents.find((s) => s.id === id);
+    if (!incident) return null;
+
+    const now = new Date().toISOString();
+    const noteId = `disp-${Date.now()}`;
+    incident.dispatchNotes.push({
+      id: noteId,
+      authorRole,
+      authorName,
+      text: text.trim(),
+      timestamp: now,
+    });
+
+    incident.auditLogs.push({
+      id: `aud-${Date.now()}`,
+      timestamp: now,
+      action: 'DISPATCH_NOTE_ADDED',
+      actorRole: authorRole,
+      actorName: authorName,
+      details: `Dispatch message posted by ${authorRole} (${authorName}).`,
+    });
+
+    incident.updatedAt = now;
+    return incident;
+  }
+
+  public checkAndAutoEscalateUnacknowledged(): SOSIncident[] {
+    const escalated: SOSIncident[] = [];
+    const now = Date.now();
+
+    for (const incident of this.sosIncidents) {
+      if (incident.status === 'Delivered') {
+        const triggeredTime = new Date(incident.triggeredAt).getTime();
+        // If unacknowledged for > 60 seconds, auto-escalate
+        if (now - triggeredTime > 60000) {
+          incident.status = 'Escalated';
+          incident.escalatedAt = new Date().toISOString();
+          incident.escalatedReason = 'Auto-escalation SLA: No campus authority acknowledged within 60 seconds. Elevated to Higher Authority and Emergency Helplines.';
+          incident.updatedAt = new Date().toISOString();
+
+          incident.dispatchNotes.push({
+            id: `disp-auto-${Date.now()}`,
+            authorRole: 'Higher Authority',
+            authorName: 'ZOVA Emergency Protocol',
+            text: '⚠️ EMERGENCY AUTO-ESCALATED: Alert was not acknowledged within 60 seconds. Escalated to Senior Administration and Police Liaison.',
+            timestamp: new Date().toISOString(),
+          });
+
+          incident.auditLogs.push({
+            id: `aud-esc-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            action: 'AUTO_ESCALATION_TRIGGERED',
+            actorRole: 'System',
+            actorName: 'ZOVA SLA Engine',
+            details: 'Automatic emergency escalation triggered due to unacknowledged SLA breach (>60s).',
+          });
+
+          escalated.push(incident);
+        }
+      }
+    }
+
+    return escalated;
   }
 
   public resetToDefaultDemo(): void {

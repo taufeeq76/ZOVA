@@ -6,6 +6,9 @@ import {
   College,
   ComplaintStatus,
   Role,
+  SOSIncident,
+  SOSIncidentStatus,
+  SOSLocation,
 } from '../types/index.ts';
 
 /**
@@ -221,6 +224,176 @@ class ApiClient {
       }
     } catch {}
     return null;
+  }
+
+  // ==========================================
+  // EMERGENCY SOS API METHODS
+  // ==========================================
+
+  public async triggerSOS(
+    student: CurrentUser,
+    location: SOSLocation | null,
+    triggerMode?: string,
+    locationError?: string
+  ): Promise<{ incident: SOSIncident; message: string }> {
+    const res = await fetch('/api/sos/trigger', {
+      method: 'POST',
+      headers: this.getHeaders(student),
+      body: JSON.stringify({
+        student,
+        location,
+        triggerMode,
+        locationError,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to trigger emergency SOS');
+    }
+    return res.json();
+  }
+
+  public async getActiveSOS(currentUser?: CurrentUser): Promise<SOSIncident[]> {
+    try {
+      const campusCode = currentUser?.campus?.campusCode;
+      const url = campusCode
+        ? `/api/sos/active?campusCode=${encodeURIComponent(campusCode)}`
+        : '/api/sos/active';
+      const res = await fetch(url, {
+        headers: this.getHeaders(currentUser),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.activeIncidents || [];
+      }
+    } catch {}
+    return [];
+  }
+
+  public async getSOSDetails(id: string): Promise<SOSIncident | null> {
+    try {
+      const res = await fetch(`/api/sos/${encodeURIComponent(id)}`);
+      if (res.ok) {
+        const data = await res.json();
+        return data.incident;
+      }
+    } catch {}
+    return null;
+  }
+
+  public async acknowledgeSOS(id: string, currentUser: CurrentUser): Promise<SOSIncident> {
+    const res = await fetch(`/api/sos/${encodeURIComponent(id)}/acknowledge`, {
+      method: 'POST',
+      headers: this.getHeaders(currentUser),
+      body: JSON.stringify({
+        actorRole: currentUser.role,
+        actorName: currentUser.name,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to acknowledge SOS alert');
+    }
+    const data = await res.json();
+    return data.incident;
+  }
+
+  public async updateSOSStatus(
+    id: string,
+    status: SOSIncidentStatus,
+    note: string | undefined,
+    currentUser: CurrentUser
+  ): Promise<SOSIncident> {
+    const res = await fetch(`/api/sos/${encodeURIComponent(id)}/status`, {
+      method: 'POST',
+      headers: this.getHeaders(currentUser),
+      body: JSON.stringify({
+        status,
+        note,
+        actorRole: currentUser.role,
+        actorName: currentUser.name,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to update incident status');
+    }
+    const data = await res.json();
+    return data.incident;
+  }
+
+  public async cancelSOS(
+    id: string,
+    reason: string | undefined,
+    currentUser: CurrentUser
+  ): Promise<SOSIncident> {
+    const res = await fetch(`/api/sos/${encodeURIComponent(id)}/cancel`, {
+      method: 'POST',
+      headers: this.getHeaders(currentUser),
+      body: JSON.stringify({
+        cancelledBy: currentUser.role === 'Student' ? 'Student' : 'Authority',
+        actorName: currentUser.name,
+        reason,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to cancel emergency alert');
+    }
+    const data = await res.json();
+    return data.incident;
+  }
+
+  public async updateSOSLocation(id: string, location: SOSLocation): Promise<boolean> {
+    try {
+      const res = await fetch(`/api/sos/${encodeURIComponent(id)}/location`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  public async addSOSDispatchNote(
+    id: string,
+    text: string,
+    currentUser: CurrentUser
+  ): Promise<SOSIncident> {
+    const res = await fetch(`/api/sos/${encodeURIComponent(id)}/dispatch-note`, {
+      method: 'POST',
+      headers: this.getHeaders(currentUser),
+      body: JSON.stringify({
+        text,
+        authorRole: currentUser.role,
+        authorName: currentUser.name,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to send dispatch note');
+    }
+    const data = await res.json();
+    return data.incident;
+  }
+
+  public async getSOSHistory(currentUser?: CurrentUser): Promise<SOSIncident[]> {
+    try {
+      const campusCode = currentUser?.campus?.campusCode;
+      const url = campusCode
+        ? `/api/sos-history?campusCode=${encodeURIComponent(campusCode)}`
+        : '/api/sos-history';
+      const res = await fetch(url, {
+        headers: this.getHeaders(currentUser),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.history || [];
+      }
+    } catch {}
+    return [];
   }
 
   public async resetDemoData(): Promise<void> {

@@ -1,0 +1,48 @@
+{
+  "id": "/",
+  "name": "ZOVA - Campus Safety & Anti-Ragging",
+  "short_name": "ZOVA",
+  "description": "Confidential campus safety, harassment reporting, and instant emergency SOS widget.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#111827",
+  "background_color": "#111827",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Emergency SOS",
+      "short_name": "SOS Alert",
+      "description": "Trigger Instant Emergency Campus SOS Alert with Location",
+      "url": "/?action=sos-widget",
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "192x192",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Campus Helplines",
+      "short_name": "Helplines",
+      "description": "Direct One-Tap Emergency & Anti-Ragging Contacts",
+      "url": "/?tab=emergency",
+      "icons": [
+        {
+          "src": "/favicon.svg",
+          "sizes": "192x192",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ]
+}
