@@ -1,0 +1,8 @@
+{
+  "name": "Campus Shield - Confidential Campus Safety & Harassment Reporting",
+  "description": "A confidential, role-based reporting and automatic escalation platform for offline and cyber harassment with real-time audit logs and safety workflows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
